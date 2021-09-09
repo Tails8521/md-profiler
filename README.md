@@ -8,7 +8,7 @@ This program, meant to be used with [this fork](https://github.com/Tails8521/bla
 
 ## Installation
 
-Download md-profiler and [this modified version of BlastEm](https://github.com/Tails8521/blastem/releases/tag/1.0.0), only Windows binaries are provided, other OS will have to compile from the source code.  
+Download [md-profiler](https://github.com/Tails8521/md-profiler/releases) and [this modified version of BlastEm](https://github.com/Tails8521/blastem/releases/tag/1.0.0), only Windows binaries are provided, other OS will have to compile from the source code.  
 
 ## Generating symbols
 
