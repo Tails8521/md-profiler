@@ -1,0 +1,6 @@
+/target
+*.json
+*.txt
+*.csv
+*.mdp
+*.bin
