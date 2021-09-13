@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, fs::File, io::{BufWriter, Write}};
+use std::{collections::{BTreeMap, HashMap, HashSet}, fs::File, io::{BufWriter, Write}};
 
 use crate::profiling::{TraceEvent, cycle_to_us};
 
@@ -52,17 +52,27 @@ impl Intervals {
     }
 }
 
-fn read_interval_elm(input: &str, symbols: &HashMap<String, u32>) -> u32 {
+fn read_interval_elm(input: &str, symbols: &BTreeMap<String, u32>) -> Vec<u32> {
     if let Some(&address) = symbols.get(input) {
-        return address;
+        return vec![address];
     }
     if let Ok(address) = u32::from_str_radix(input, 16) {
-        return address;
+        return vec![address];
     }
-    panic!("{} not found in the symbol files", input);
+    let mut ret = Vec::new();
+    let mut prefix = String::from("mdp_label_");
+    prefix.push_str(input);
+    // add all symbols that start with prefix
+    for (_symbol, &address) in symbols.range(prefix.clone()..).take_while(|(symbol, _)| symbol.starts_with(&prefix)) {
+        ret.push(address);
+    }
+    if ret.is_empty() {
+        panic!("{} not found in the symbol file", input);
+    }
+    ret
 }
 
-pub fn read_intervals(input: &[u8], symbols: &HashMap<String, u32>) -> (Intervals, HashMap<String, u32>) {
+pub fn read_intervals(input: &[u8], symbols: &BTreeMap<String, u32>) -> (Intervals, HashMap<String, u32>) {
     let mut intervals_info = Vec::new();
     let mut starts: HashMap<u32, Vec<usize>> = HashMap::new();
     let mut ends: HashMap<u32, Vec<usize>> = HashMap::new();
@@ -72,17 +82,33 @@ pub fn read_intervals(input: &[u8], symbols: &HashMap<String, u32>) -> (Interval
     for line in input.split('\n') {
         let line_elms: Vec<_> = line.split(',').collect();
         let interval_index = intervals_info.len();
-        if line_elms.len() < 2 {
+        if line_elms.is_empty() || line.trim_start().starts_with("//") ||line_elms[0].trim().is_empty() {
             continue;
         }
-        line_elms[0].trim().split(';').for_each(|elm| {
-            let interval_start = read_interval_elm(elm, symbols);
-            starts.entry(interval_start).or_default().push(interval_index);
-        });
-        line_elms[1].trim().split(';').for_each(|elm| {
-            let interval_end = read_interval_elm(elm, symbols);
-            ends.entry(interval_end).or_default().push(interval_index);
-        });
+        if line_elms.len() == 1 {
+            let elm = line_elms[0].trim();
+            let mut elm_start = String::from(elm);
+            let mut elm_end = elm_start.clone();
+            elm_start.push_str("_start");
+            elm_end.push_str("_end");
+            for interval_start in read_interval_elm(&elm_start, symbols) {
+                starts.entry(interval_start).or_default().push(interval_index);
+            }
+            for interval_end in read_interval_elm(&elm_end, symbols) {
+                ends.entry(interval_end).or_default().push(interval_index);
+            }
+        } else {
+            line_elms[0].trim().split(';').for_each(|elm| {
+                for interval_start in read_interval_elm(elm, symbols) {
+                    starts.entry(interval_start).or_default().push(interval_index);
+                }
+            });
+            line_elms[1].trim().split(';').for_each(|elm| {
+                for interval_end in read_interval_elm(elm, symbols) {
+                    ends.entry(interval_end).or_default().push(interval_index);
+                }
+            });
+        }
         let tid = if line_elms.len() >= 4 {
             let custom_thread_name = line_elms[3].trim();
             custom_threads.get(custom_thread_name).copied().unwrap_or_else(|| {

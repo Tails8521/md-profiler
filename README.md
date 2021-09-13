@@ -49,10 +49,10 @@ You have several options:
 You can use https://ui.perfetto.dev/ in any browser, with the Open trace button in the top left, select your json file  
 Or can use Google Chrome's chrome://tracing/ interface, press the Load button, on the top left and select your json file  
 
-# Limitations 
+# Limitations and working around them
 
 - By default, the profiler only follows explicit subroutine calls with JSR or BSR instructions, if you jump to, or fall trough subroutine code, it won't show that subroutine as being currently called. This is fixable however, even without changing your code, but it will require a bit of manual input on your part, see the Advanced usage section for more details.  
-- C code with optimizations turned on tends to aggressively inline a vast amount of functions, and thus they don't appear in the graph. You can change the compiler options to make it inline less but keep in mind that builds with less inlining will not perform as well, and you may not get measurements that represent accurately how your optimized (with inlining) builds perform. I am working on a way to support manual intervals for C code, it is not as simple as with asm due to how a compiler can re-organize and duplicate code for optimization purposes, but I have a proof of concept that shows that it is feasible, I will add support for it once I come up with a good implementation.
+- C code with optimizations turned on tends to aggressively inline a vast amount of functions, and thus they don't appear in the graph. You can change the compiler options to make it inline less but keep in mind that builds with less inlining will not perform as well, and you may not get measurements that represent accurately how your optimized (with inlining) builds perform. The Advanced usage section contains a workaround that lets you profile inlined functions without affecting the generated code, at the cost of having to insert annotations manually in your source files.
 
 # Advanced usage: Manual intervals  
 
@@ -89,3 +89,40 @@ And then you can use the mdp command to record the trace as usual, except you al
 ```
 md-profiler -m <INTERVALS> -s <SYMBOLS> -i <INPUT> -o <OUTPUT>
 ```  
+
+## Profiling inlined C functions
+
+In your C code, you can use these macros  
+```c
+#define LABEL(name) asm volatile("mdp_label_" name "_%=: .global mdp_label_" name "_%=":);
+#define FUNCTION_START(name) LABEL(name "_start");
+#define FUNCTION_END(name)   LABEL(name "_end");
+```
+to define global labels and function start/end markers that the profiler can use
+
+For instance, if myfunction gets inlined when compiling but you still want to profile it, you can do this: 
+
+```c
+s16 myfunction(s16 a) {
+    FUNCTION_START("myfunction");
+    if (a > 0) {
+        FUNCTION_END("myfunction");
+        return a+1;
+    }
+    if (a < 0) {
+        FUNCTION_END("myfunction");
+        return a-1;
+    }
+    FUNCTION_END("myfunction");
+    return 0;
+}
+```
+
+You need to add FUNCTION_START at the start of the function and the FUNCTION_END before each return statement (including the implicit one at the end of the function for void functions)  
+In your interval file, you just specify the function name alone on a line, like so: 
+```
+myfunction
+```
+
+I know that ideally gcc would be able to automate this work automatically, I am aware of -finstrument-functions, but this isn't really what I want, I would need something like -finstrument-macros  
+Anyway, if you are aware of a better way of doing this, please let me know.

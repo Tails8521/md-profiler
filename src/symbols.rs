@@ -3,7 +3,7 @@ use std::{collections::{BTreeMap, HashMap}, convert::TryInto};
 #[derive(Debug, Default)]
 pub struct Symbols {
     pub address_to_label: HashMap<u32, Vec<String>>,
-    pub label_to_address: HashMap<String, u32>,
+    pub label_to_address: BTreeMap<String, u32>,
 }
 
 pub fn read_symbols(input: &[u8]) -> Symbols {
@@ -18,7 +18,7 @@ pub fn read_symbols(input: &[u8]) -> Symbols {
 
 fn read_asm68k_symbols(input: &[u8]) -> Symbols {
     let mut address_to_label: BTreeMap<u32, Vec<String>> = BTreeMap::new();
-    let mut label_to_address: HashMap<String, u32> = HashMap::new();
+    let mut label_to_address: BTreeMap<String, u32> = BTreeMap::new();
     let mut i = 8; // skip header
     while i < input.len() {
         let address = u32::from_le_bytes(input[i..i+4].try_into().unwrap());
@@ -51,7 +51,7 @@ fn read_asm68k_symbols(input: &[u8]) -> Symbols {
 
 fn read_as_symbols(input: &[u8]) -> Symbols {
     let mut address_to_symbols: HashMap<u32, Vec<String>> = HashMap::new();
-    let mut symbol_to_address: HashMap<String, u32> = HashMap::new();
+    let mut symbol_to_address: BTreeMap<String, u32> = BTreeMap::new();
     let input = String::from_utf8_lossy(input);
     let (_, input_symbols) = input.split_once("Symbols in Segment").expect("Error parsing as symbols");
     for line in input_symbols.lines().skip(1) {
@@ -80,7 +80,7 @@ fn read_as_symbols(input: &[u8]) -> Symbols {
 
 fn read_nm_symbols(input: &[u8]) -> Symbols {
     let mut address_to_symbols: HashMap<u32, Vec<String>> = HashMap::new();
-    let mut symbol_to_address: HashMap<String, u32> = HashMap::new();
+    let mut symbol_to_address: BTreeMap<String, u32> = BTreeMap::new();
     let input = String::from_utf8_lossy(input);
     for line in input.split('\n') {
         let elms: Vec<_> = line.split_ascii_whitespace().collect();
